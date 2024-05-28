@@ -18,8 +18,8 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file configs/accelerate_conf
     --peft_lora_targets q_proj,k_proj,v_proj,o_proj,gate_proj,down_proj,up_proj \
     --train_split train_sft \
     --test_split test_sft \
-    --per_device_train_batch_size 2 \
-    --per_device_eval_batch_size 2 \
+    --per_device_train_batch_size 16 \
+    --per_device_eval_batch_size 16 \
     --gradient_accumulation_steps 8 \
     --num_train_epochs 3 \
     --output_dir output/llama3-8b_sft_ultrachat200k \
