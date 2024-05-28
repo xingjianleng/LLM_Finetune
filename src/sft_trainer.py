@@ -3,15 +3,16 @@ Modified from: https://gist.githubusercontent.com/lewtun/b9d46e00292d9ecdd6fd962
 """
 from dataclasses import dataclass, field
 from typing import Optional
-from functools import partial
 
 import torch
 from accelerate import Accelerator
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset, DatasetDict, disable_caching
 from peft import LoraConfig
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, HfArgumentParser, AutoTokenizer
 from trl import SFTTrainer, SFTConfig
 
+# Disable caching, since tokenizer is dynamic, we can't reload cache anyway
+disable_caching()
 
 templates = {
     "llama3": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}",
@@ -81,6 +82,10 @@ class ScriptArguments:
     )
     save_total_limit: Optional[int] = field(default=3, metadata={"help": "Limits total number of checkpoints."})
     report_to: Optional[str] = field(default="none", metadata={"help": "Logging platform"})
+    load_from_cache_file: Optional[bool] = field(default=True,
+                                                 metadata={"help": "Load from cache file"})
+    attn_implementation: Optional[str] = field(default="flash_attention_2",
+                                               metadata={"help": "Attention implementation"})
 
 parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
@@ -120,7 +125,13 @@ def prepare_dialogue(example, tokenizer):
     return example
 
 remove_columns = dataset.column_names['train']
-dataset = dataset.map(partial(prepare_dialogue, tokenizer=tokenizer), num_proc=4, remove_columns=remove_columns)
+dataset = dataset.map(
+    prepare_dialogue,
+    num_proc=4,
+    load_from_cache_file=script_args.load_from_cache_file,
+    fn_kwargs={"tokenizer": tokenizer},
+    remove_columns=remove_columns
+)
 
 # Step 2: Define the training arguments
 # NOTE: Moving this to the front to make zero.Init() call before model instantiation
@@ -130,6 +141,7 @@ training_args = SFTConfig(
     per_device_eval_batch_size=script_args.per_device_eval_batch_size,
     gradient_accumulation_steps=script_args.gradient_accumulation_steps,
     gradient_checkpointing=script_args.gradient_checkpointing,
+    gradient_checkpointing_kwargs={"use_reentrant": False},
     learning_rate=script_args.learning_rate,
     weight_decay=script_args.weight_decay,
     logging_steps=script_args.logging_steps,
@@ -179,6 +191,8 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map=device_map,
     trust_remote_code=script_args.trust_remote_code,
     torch_dtype=torch_dtype,
+    attn_implementation=script_args.attn_implementation,
+    use_cache=not script_args.gradient_checkpointing,
 )
 
 # Step 4: Define the LoraConfig

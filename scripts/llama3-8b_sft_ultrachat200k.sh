@@ -12,6 +12,7 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file configs/accelerate_conf
     --use_peft true \
     --peft_lora_r 256 \
     --peft_lora_alpha 16 \
+    --max_seq_length 2048 \
     --peft_lora_dropout 0.05 \
     --peft_use_rslora true \
     --peft_lora_bias none \
