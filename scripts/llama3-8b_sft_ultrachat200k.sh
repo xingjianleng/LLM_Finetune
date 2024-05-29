@@ -14,7 +14,7 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file configs/accelerate_conf
     --peft_lora_alpha 16 \
     --max_seq_length 2048 \
     --peft_lora_dropout 0.0 \
-    --peft_use_rslora true \
+    --peft_use_rslora false \
     --peft_lora_bias none \
     --peft_lora_targets q_proj,v_proj \
     --train_split train_sft \
@@ -32,6 +32,8 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file configs/accelerate_conf
     --save_steps 800 \
     --save_total_limit 2 \
     --logging_steps 1 \
+    --loraplus_lr_ratio 16.0 \
+    --loraplus_lr_embedding 1e-6 \
     --warmup_ratio 0.03 \
     --bf16 true \
     --report_to wandb
