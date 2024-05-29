@@ -10,17 +10,17 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file configs/accelerate_conf
     --dataset_name HuggingFaceH4/ultrachat_200k \
     --messages_col_name messages \
     --use_peft true \
-    --peft_lora_r 256 \
+    --peft_lora_r 64 \
     --peft_lora_alpha 16 \
     --max_seq_length 2048 \
-    --peft_lora_dropout 0.05 \
+    --peft_lora_dropout 0.0 \
     --peft_use_rslora true \
     --peft_lora_bias none \
-    --peft_lora_targets q_proj,k_proj,v_proj,o_proj,gate_proj,down_proj,up_proj \
+    --peft_lora_targets q_proj,v_proj \
     --train_split train_sft \
     --test_split test_sft \
-    --per_device_train_batch_size 16 \
-    --per_device_eval_batch_size 16 \
+    --per_device_train_batch_size 8 \
+    --per_device_eval_batch_size 8 \
     --gradient_accumulation_steps 8 \
     --num_train_epochs 3 \
     --output_dir output/llama3-8b_sft_ultrachat200k \
