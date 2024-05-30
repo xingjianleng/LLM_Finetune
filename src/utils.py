@@ -93,3 +93,5 @@ class SFTArguments:
                                                  metadata={"help": "Load from cache file"})
     attn_implementation: Optional[str] = field(default="flash_attention_2",
                                                metadata={"help": "Attention implementation"})
+    packing: Optional[bool] = field(default=True,
+                                    metadata={"help": "Packing multiple short sequences into one sequence"})

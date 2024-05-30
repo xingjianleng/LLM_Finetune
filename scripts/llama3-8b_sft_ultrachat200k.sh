@@ -36,4 +36,5 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file configs/accelerate_conf
     --loraplus_lr_embedding 1e-6 \
     --warmup_ratio 0.03 \
     --bf16 true \
+    --packing true \
     --report_to wandb

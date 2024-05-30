@@ -6,13 +6,10 @@ from optim import create_loraplus_optimizer
 
 import torch
 from accelerate import Accelerator
-from datasets import load_dataset, DatasetDict, disable_caching
+from datasets import load_dataset, DatasetDict
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, HfArgumentParser, AutoTokenizer
 from trl import SFTTrainer, SFTConfig
-
-# Disable caching, since tokenizer is dynamic, we can't reload cache anyway
-disable_caching()
 
 
 def main():
@@ -77,7 +74,7 @@ def main():
         save_steps=script_args.save_steps,
         max_seq_length=script_args.max_seq_length,
         dataset_text_field=script_args.dataset_text_field,
-        packing=True,
+        packing=script_args.packing,
         report_to=script_args.report_to,
     )
 
