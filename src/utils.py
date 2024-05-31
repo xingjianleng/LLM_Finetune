@@ -25,6 +25,9 @@ def prepare_dialogue(example, tokenizer, script_args):
             messages_new.append({"content": message, "role": "user" if i % 2 == 0 else "assistant"})
     else:
         raise ValueError(f"Invalid type for messages: {type(messages[0])}")
+    # We add an empty system message if there is none
+    if messages[0]["role"] != "system":
+        messages.insert(0, {"content": "", "role": "system"})
     text = tokenizer.apply_chat_template(example[script_args.messages_col_name], tokenize=False)
     example["text"] = text
     return example
