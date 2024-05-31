@@ -124,7 +124,7 @@ def main():
     else:
         peft_config = None
 
-    # Step 6: Define the Trainer
+    # Step 5: Define the Trainer
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -133,7 +133,7 @@ def main():
         eval_dataset=dataset["test"],
     )
 
-    # Step 5: Prepare LoRA+ optimizer and start training
+    # Step 6: Prepare LoRA+ optimizer and start training
     if script_args.loraplus_lr_ratio is not None:
         optimizer = create_loraplus_optimizer(model, training_args, script_args)
         trainer.optimizer = optimizer
