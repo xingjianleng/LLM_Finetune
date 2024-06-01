@@ -2,6 +2,7 @@
 
 export WANDB_PROJECT=LLM_Finetune
 export WANDB_MODE=offline
+timestamp=$(date +"%Y%m%d_%H%M%S")
 
 # 1. Fix LoRA_alpha to 16
 #   https://datascience.stackexchange.com/questions/123229/understanding-alpha-parameter-tuning-in-lora-paper
@@ -24,7 +25,7 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file configs/accelerate_conf
     --per_device_eval_batch_size 8 \
     --gradient_accumulation_steps 8 \
     --num_train_epochs 1 \
-    --output_dir output/mistral-7b_sft_ultrachat200k \
+    --output_dir output/mistral-7b_sft_ultrachat200k_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
