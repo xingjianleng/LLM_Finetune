@@ -4,7 +4,18 @@ from typing import Optional
 
 templates = {
     "llama3": "{% set loop_messages = messages %}{% for message in loop_messages %}{% set content = '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n'+ message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}",
-    "mixtral": "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST] ' + message['content'] + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}"
+    "mistral": "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST] ' + message['content'] + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}",
+    "zephyr": "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'system' %}\n{{ '<|system|>\n' + message['content'] + eos_token }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}"
+}
+support_system_msg = {
+    "llama3": True,
+    "mistral": False,
+    "zephyr": True
+}
+assistant_prefixs = {
+    "llama3": "<|start_header_id|>assistant<|end_header_id|>\n\n",
+    "mistral": "[/INST]",
+    "zephyr": "<|assistant|>\n"
 }
 
 
@@ -16,28 +27,99 @@ def split_arg(arg):
 
 def prepare_dialogue(example, tokenizer, script_args):
     messages = example[script_args.messages_col_name]
-    assert isinstance(messages, list) and len(messages) > 0
-    if isinstance(messages[0], dict):
-        assert "content" in messages[0] and "role" in messages[0]
-    elif isinstance(messages[0], str):
-        messages_new = []
-        for i, message in enumerate(messages):
-            messages_new.append({"content": message, "role": "user" if i % 2 == 0 else "assistant"})
+    if type(messages) == list:
+        assert len(messages) > 0, "Messages must not be empty"
+        if isinstance(messages[0], dict):
+            for i in range(len(messages)):
+                assert "content" in messages[i] and "role" in messages[i]
+        elif isinstance(messages[0], str):
+            messages_new = []
+            for i, message in enumerate(messages):
+                messages_new.append({"content": message, "role": "user" if i % 2 == 0 else "assistant"})
+            messages = messages_new
+        else:
+            raise ValueError(f"Invalid type for single message: {type(messages[0])}")
+
+    elif type(messages) == str:
+        # It must be a single-turn dialogue, where response is the chosen collumn, and the 
+        promt_name = "prompt" if "prompt" in example else ("whole_prompt" if "whole_prompt" in example else None)
+        if promt_name is None:
+            raise ValueError("Prompt name not found in example")
+
+        messages = [{"content": example[promt_name], "role": "user"}, {"content": messages, "role": "assistant"}]
+    
     else:
-        raise ValueError(f"Invalid type for messages: {type(messages[0])}")
+        raise TypeError(f"Invalid type for messages: {type(messages)}")
+
     # We add an empty system message if there is none
     if messages[0]["role"] != "system":
         messages.insert(0, {"content": "", "role": "system"})
-    text = tokenizer.apply_chat_template(example[script_args.messages_col_name], tokenize=False)
+    # NOTE: In some models, the chat template doesn't support system messages, in this case, we combine with user prompt
+    if not support_system_msg[script_args.template]:
+        separator = "\n\n" if messages[0]["content"] else ""
+        messages[1]["content"] = f'{messages[0]["content"]}{separator}{messages[1]["content"]}'
+        messages.pop(0)
+
+    text = tokenizer.apply_chat_template(messages, tokenize=False)
     example["text"] = text
+    return example
+
+
+def prepare_dpo_dialogue(example, tokenizer, script_args):
+    assert 'chosen' in example and 'rejected' in example and type(example['chosen']) == type(example['rejected']), \
+        f"`chosen` and `rejected` must exist and be of the same type"
+
+    if type(example['chosen']) == list:
+        chosen_messages = example['chosen']
+        rejected_messages = example['rejected']
+
+        # Prepent empty system message if it's not there
+        if chosen_messages[0]['role'] != 'system':
+            chosen_messages.insert(0, {"content": "", "role": "system"})
+            rejected_messages.insert(0, {"content": "", "role": "system"})
+        
+        # Combine the first user message with the system message if the template doesn't support system messages
+        if not support_system_msg[script_args.template]:
+            chosen_messages[1]["content"] = f'{chosen_messages[0]["content"]}\n\n{chosen_messages[1]["content"]}'
+            rejected_messages[1]["content"] = f'{rejected_messages[0]["content"]}\n\n{rejected_messages[1]["content"]}'
+            chosen_messages.pop(0)
+            rejected_messages.pop(0)
+
+        # Apply chat template
+        chosen_text = tokenizer.apply_chat_template(chosen_messages, tokenize=False)
+        rejected_text = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
+
+    elif type(example['chosen']) == str:
+        # This should only happen in our customized dataset, where we are using mistral template
+        assert script_args.template == "mistral", "This should only happen in mistral template"
+
+        prompt_name = "prompt" if "prompt" in example else ("whole_prompt" if "whole_prompt" in example else None)
+        if prompt_name is None:
+            raise ValueError("Prompt name not found in example")
+
+        # Apply chat template
+        chosen_messages = [{"content": example[prompt_name], "role": "user"}, {"content": example['chosen'], "role": "assistant"}]
+        rejected_messages = [{"content": example[prompt_name], "role": "user"}, {"content": example['rejected'], "role": "assistant"}]
+        chosen_text = tokenizer.apply_chat_template(chosen_messages, tokenize=False)
+        rejected_text = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
+
+    else:
+        raise TypeError(f"Invalid type for chosen and rejected: {type(example['chosen'])}")
+
+    # Make sure the user query is the same
+    assert chosen_text.split(assistant_prefixs[script_args.template])[0] == rejected_text.split(assistant_prefixs[script_args.template])[0], \
+        "The chosen and rejected messages must have the same user query"
+    # Assistant response should be the last part
+    example['text_chosen'] = chosen_text.split(assistant_prefixs[script_args.template])[-1]
+    example['text_rejected'] = rejected_text.split(assistant_prefixs[script_args.template])[-1]
+    # Set the prompt
+    example['text_prompt'] = chosen_text.split(assistant_prefixs[script_args.template])[0] + assistant_prefixs[script_args.template]
+
     return example
 
 
 @dataclass
 class SFTArguments:
-    """
-    The name of the Casual LM model we wish to fine with SFTTrainer
-    """
     model_name: Optional[str] = field(default="meta-llama/Meta-Llama-3-8B", metadata={"help": "the model name"})
     dataset_name: Optional[str] = field(
         default="HuggingFaceH4/ultrachat_200k", metadata={"help": "the dataset name"}
@@ -46,8 +128,7 @@ class SFTArguments:
     test_split: Optional[str] = field(default=None, metadata={"help": "the test split of the dataset"})
     test_size: Optional[float] = field(default=0.15, metadata={"help": "the size of the test split, only used if test_split is None"})
     dataset_text_field: Optional[str] = field(default="text", metadata={"help": "the text field of the dataset"})
-    log_with: Optional[str] = field(default="wandb", metadata={"help": "use 'wandb' to log with wandb"})
-    learning_rate: Optional[float] = field(default=2e-5, metadata={"help": "the learning rate"})
+    learning_rate: Optional[float] = field(default=5e-5, metadata={"help": "the learning rate"})
     weight_decay: Optional[float] = field(default=0., metadata={"help": "the weight decay"})
     per_device_train_batch_size: Optional[int] = field(default=4, metadata={"help": "the training batch size"})
     per_device_eval_batch_size: Optional[int] = field(default=4, metadata={"help": "the evaluation batch size"})
