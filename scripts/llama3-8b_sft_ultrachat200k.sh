@@ -4,7 +4,6 @@ export WANDB_PROJECT=LLM_Finetune
 export WANDB_MODE=offline
 
 timestamp=$(date +"%Y%m%d_%H%M%S")
-GPUS=$CUDA_VISIBLE_DEVICES
 IFS=',' read -ra GPU_ARRAY <<< "$CUDA_VISIBLE_DEVICES"
 NUM_GPUS=${#GPU_ARRAY[@]}
 
