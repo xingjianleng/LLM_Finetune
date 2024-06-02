@@ -32,6 +32,7 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --per_device_train_batch_size 8 \
     --per_device_eval_batch_size 8 \
     --gradient_accumulation_steps 8 \
+    --gradient_checkpointing true \
     --learning_rate 5e-5 \
     --num_train_epochs 1 \
     --output_dir output/mistral-7b_sft_ultrachat200k_$timestamp \

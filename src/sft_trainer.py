@@ -64,7 +64,7 @@ def main():
         remove_columns=remove_columns
     )
 
-    # Step 3: Load the model
+    # Step 2: Load the model
     torch_dtype = torch.bfloat16 if script_args.bf16 else (torch.float16 if script_args.fp16 else torch.float32)
 
     if script_args.load_in_8bit and script_args.load_in_4bit:
@@ -89,7 +89,7 @@ def main():
         use_cache=not script_args.gradient_checkpointing,
     )
 
-    # Step 4: Define the LoraConfig and load the model
+    # Step 3: Define the LoraConfig and load the model
     if script_args.use_peft:
         peft_config = LoraConfig(
             r=script_args.peft_lora_r,
@@ -106,7 +106,7 @@ def main():
     else:
         peft_config = None
 
-    # Step 5: Define the Trainer
+    # Step 4: Define the Trainer
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -115,14 +115,14 @@ def main():
         eval_dataset=dataset["test"],
     )
 
-    # Step 6: Prepare LoRA+ optimizer and start training
+    # Step 5: Prepare LoRA+ optimizer and start training
     if script_args.loraplus_lr_ratio is not None:
         optimizer = create_loraplus_optimizer(model, script_args)
         trainer.optimizer = optimizer
 
     trainer.train()
 
-    # Step 7: Save the model
+    # Step 6: Save the model
     trainer.save_model(script_args.output_dir)
 
 
