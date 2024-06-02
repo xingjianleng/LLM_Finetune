@@ -6,6 +6,7 @@ deepspeed_config:
   zero3_init_flag: false
   zero_stage: 1
 distributed_type: DEEPSPEED
+main_process_port: 0
 downcast_bf16: 'no'
 machine_rank: 0
 main_training_function: main
