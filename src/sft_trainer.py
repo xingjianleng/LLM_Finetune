@@ -1,21 +1,39 @@
 """
 Modified from: https://gist.githubusercontent.com/lewtun/b9d46e00292d9ecdd6fd9628d53c2814/raw/113d9cc98b1556c8b49f608645e2cf269030995d/sft_trainer.py
 """
+import json
 from utils import SFTArguments, prepare_dialogue, split_arg, templates
 from optim import create_loraplus_optimizer
 
 import torch
-from accelerate import Accelerator
 from datasets import load_dataset, DatasetDict
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, HfArgumentParser, AutoTokenizer
-from trl import SFTTrainer, SFTConfig
+from trl import SFTTrainer
 
 
 def main():
     parser = HfArgumentParser(SFTArguments)
     script_args = parser.parse_args_into_dataclasses()[0]
+    # Manually set gradient checkpointing kwargs
+    script_args.gradient_checkpointing_kwargs = {"use_reentrant": script_args.use_reentrant}
     peft_lora_targets_parsed = split_arg(script_args.peft_lora_targets)
+
+    # If we are using deepspeed, we need to check if we are using Zero stage 3
+    if script_args.deepspeed is not None and (script_args.load_in_8bit or script_args.load_in_4bit):
+        if type(script_args.deepspeed) == str:
+            with open(script_args.deepspeed) as f:
+                ds_config = json.load(f)
+        elif type(script_args.deepspeed) == dict:
+            ds_config = script_args.deepspeed
+        else:
+            raise TypeError(f"Invalid type for deepspeed: {type(script_args.deepspeed)}")
+        
+        # Get the DeepSpeed stage from the configuration
+        zero_optimization = ds_config.get("zero_optimization", {})
+        stage = zero_optimization.get("stage", "Not specified")
+        assert stage != 3, \
+            "DeepSpeed Zero stage 3 is not supported with quantization"
 
     # Step 1: Load the dataset
     tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
@@ -46,38 +64,6 @@ def main():
         remove_columns=remove_columns
     )
 
-    # Step 2: Define the training arguments
-    # NOTE: Moving this to the front to make zero.Init() call before model instantiation
-    training_args = SFTConfig(
-        output_dir=script_args.output_dir,
-        per_device_train_batch_size=script_args.per_device_train_batch_size,
-        per_device_eval_batch_size=script_args.per_device_eval_batch_size,
-        gradient_accumulation_steps=script_args.gradient_accumulation_steps,
-        gradient_checkpointing=script_args.gradient_checkpointing,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
-        learning_rate=script_args.learning_rate,
-        weight_decay=script_args.weight_decay,
-        logging_steps=script_args.logging_steps,
-        num_train_epochs=script_args.num_train_epochs,
-        max_steps=script_args.max_steps,
-        save_total_limit=script_args.save_total_limit,
-        bf16=script_args.bf16,
-        fp16=script_args.fp16,
-        tf32=script_args.tf32,
-        optim=script_args.optim,
-        lr_scheduler_type=script_args.lr_scheduler_type,
-        warmup_ratio=script_args.warmup_ratio,
-        warmup_steps=script_args.warmup_steps,
-        eval_strategy=script_args.eval_strategy,
-        eval_steps=script_args.eval_steps,
-        save_strategy=script_args.save_strategy,
-        save_steps=script_args.save_steps,
-        max_seq_length=script_args.max_seq_length,
-        dataset_text_field=script_args.dataset_text_field,
-        packing=script_args.packing,
-        report_to=script_args.report_to,
-    )
-
     # Step 3: Load the model
     torch_dtype = torch.bfloat16 if script_args.bf16 else (torch.float16 if script_args.fp16 else torch.float32)
 
@@ -87,12 +73,8 @@ def main():
         quantization_config = BitsAndBytesConfig(
             load_in_8bit=script_args.load_in_8bit, load_in_4bit=script_args.load_in_4bit
         )
-        # If we are using deepspeed, we need to check if we are using Zero stage 3
-        if Accelerator().state.deepspeed_plugin is not None:
-            assert Accelerator().state.deepspeed_plugin.zero_stage != 3, \
-                "DeepSpeed Zero stage 3 is not supported with quantization"
         # Copy the model to each device
-        device_map = {"": Accelerator().local_process_index}
+        device_map = {"": script_args.device}
     else:
         device_map = None
         quantization_config = None
@@ -128,14 +110,14 @@ def main():
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
-        args=training_args,
+        args=script_args,
         train_dataset=dataset["train"],
         eval_dataset=dataset["test"],
     )
 
     # Step 6: Prepare LoRA+ optimizer and start training
     if script_args.loraplus_lr_ratio is not None:
-        optimizer = create_loraplus_optimizer(model, training_args, script_args)
+        optimizer = create_loraplus_optimizer(model, script_args)
         trainer.optimizer = optimizer
 
     trainer.train()

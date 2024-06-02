@@ -5,9 +5,16 @@ export WANDB_MODE=offline
 
 timestamp=$(date +"%Y%m%d_%H%M%S")
 
-# 1. Fix LoRA_alpha to 16
-#   https://datascience.stackexchange.com/questions/123229/understanding-alpha-parameter-tuning-in-lora-paper
-CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3.yaml src/sft_trainer.py \
+# Set the default master port
+MASTER_PORT=29500
+
+# Check if the master port argument is provided and update the master port
+if [ -n "$1" ]; then
+    MASTER_PORT=$1
+fi
+
+deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
+    --deepspeed configs/deepspeed_configs/ds_zero3.json \
     --model_name mistralai/Mistral-7B-v0.1 \
     --template zephyr \
     --dataset_name HuggingFaceH4/ultrachat_200k \
@@ -25,6 +32,7 @@ CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES accelerate launch --config_file confi
     --per_device_train_batch_size 8 \
     --per_device_eval_batch_size 8 \
     --gradient_accumulation_steps 8 \
+    --learning_rate 5e-5 \
     --num_train_epochs 1 \
     --output_dir output/mistral-7b_sft_ultrachat200k_$timestamp \
     --optim adamw_torch \

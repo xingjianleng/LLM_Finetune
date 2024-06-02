@@ -12,9 +12,9 @@ def _get_decay_parameter_names(model):
     return decay_parameters
 
 
-def create_loraplus_optimizer(model, training_args, script_args):
-    default_lr = training_args.learning_rate
-    loraplus_lr = training_args.learning_rate * script_args.loraplus_lr_ratio
+def create_loraplus_optimizer(model, script_args):
+    default_lr = script_args.learning_rate
+    loraplus_lr = script_args.learning_rate * script_args.loraplus_lr_ratio
     embedding_lr = script_args.loraplus_lr_embedding
 
     decay_param_names = _get_decay_parameter_names(model)
@@ -36,12 +36,12 @@ def create_loraplus_optimizer(model, training_args, script_args):
             else:
                 param_dict["lora_a"].append(param)
 
-    optim_class, optim_kwargs = Trainer.get_optimizer_cls_and_kwargs(training_args)
+    optim_class, optim_kwargs = Trainer.get_optimizer_cls_and_kwargs(script_args)
     param_groups = [
-        dict(params=param_dict["lora_a"], lr=default_lr, weight_decay=training_args.weight_decay),
-        dict(params=param_dict["lora_b"], lr=loraplus_lr, weight_decay=training_args.weight_decay),
+        dict(params=param_dict["lora_a"], lr=default_lr, weight_decay=script_args.weight_decay),
+        dict(params=param_dict["lora_b"], lr=loraplus_lr, weight_decay=script_args.weight_decay),
         dict(params=param_dict["lora_b_nodecay"], lr=loraplus_lr, weight_decay=0.0),
-        dict(params=param_dict["embedding"], lr=embedding_lr, weight_decay=training_args.weight_decay),
+        dict(params=param_dict["embedding"], lr=embedding_lr, weight_decay=script_args.weight_decay),
     ]
     optimizer = optim_class(param_groups, **optim_kwargs)
 

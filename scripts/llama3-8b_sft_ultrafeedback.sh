@@ -5,14 +5,22 @@ export WANDB_MODE=offline
 
 timestamp=$(date +"%Y%m%d_%H%M%S")
 
-# 1. Fix LoRA_alpha to 16
-#   https://datascience.stackexchange.com/questions/123229/understanding-alpha-parameter-tuning-in-lora-paper
-CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3.yaml src/sft_trainer.py \
+# Set the default master port
+MASTER_PORT=29500
+
+# Check if the master port argument is provided and update the master port
+if [ -n "$1" ]; then
+    MASTER_PORT=$1
+fi
+
+deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
+    --deepspeed configs/deepspeed_configs/ds_zero3.json \
     --model_name meta-llama/Meta-Llama-3-8B \
+    --template llama3 \
     --dataset_name HuggingFaceH4/ultrafeedback_binarized \
     --messages_col_name chosen \
     --use_peft true \
-    --peft_lora_r 128 \
+    --peft_lora_r 64 \
     --peft_lora_alpha 16 \
     --max_seq_length 2048 \
     --peft_lora_dropout 0.0 \
@@ -21,9 +29,9 @@ CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES accelerate launch --config_file confi
     --peft_lora_targets q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj \
     --train_split train_sft \
     --test_split test_sft \
-    --per_device_train_batch_size 4 \
-    --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 16 \
+    --per_device_train_batch_size 8 \
+    --per_device_eval_batch_size 8 \
+    --gradient_accumulation_steps 8 \
     --learning_rate 5e-5 \
     --num_train_epochs 3 \
     --output_dir output/llama3-8b_sft_ultrafeedback_$timestamp \
