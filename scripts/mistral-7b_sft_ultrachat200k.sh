@@ -45,5 +45,6 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --logging_steps 1 \
     --warmup_ratio 0.03 \
     --bf16 true \
+    --dataset_text_field text \
     --packing true \
     --report_to wandb
