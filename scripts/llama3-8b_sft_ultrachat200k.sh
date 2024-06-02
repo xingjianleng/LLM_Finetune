@@ -5,17 +5,9 @@ export WANDB_MODE=offline
 
 timestamp=$(date +"%Y%m%d_%H%M%S")
 
-# Set the default master port
-MASTER_PORT=29500
-
-# Check if the master port argument is provided and update the master port
-if [ -n "$1" ]; then
-    MASTER_PORT=$1
-fi
-
 # 1. Fix LoRA_alpha to 16
 #   https://datascience.stackexchange.com/questions/123229/understanding-alpha-parameter-tuning-in-lora-paper
-CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3.yaml --main_process_port $MASTER_PORT src/sft_trainer.py \
+CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3.yaml src/sft_trainer.py \
     --model_name meta-llama/Meta-Llama-3-8B \
     --template llama3 \
     --dataset_name HuggingFaceH4/ultrachat_200k \
