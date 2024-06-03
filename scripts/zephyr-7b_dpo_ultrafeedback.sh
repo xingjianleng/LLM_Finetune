@@ -44,7 +44,6 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --logging_steps 1 \
     --warmup_ratio 0.1 \
     --bf16 true \
-    --dataset_text_field text \
     --report_to wandb \
     --beta 0.1 \
     --max_length 2048 \

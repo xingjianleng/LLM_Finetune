@@ -43,11 +43,11 @@ def prepare_dialogue(example, tokenizer, script_args):
 
     elif type(messages) == str:
         # It must be a single-turn dialogue, where response is the chosen collumn, and the 
-        promt_name = "prompt" if "prompt" in example else ("whole_prompt" if "whole_prompt" in example else None)
-        if promt_name is None:
+        promt_col = script_args.prompt_col_name
+        if promt_col is None:
             raise ValueError("Prompt name not found in example")
 
-        messages = [{"content": example[promt_name], "role": "user"}, {"content": messages, "role": "assistant"}]
+        messages = [{"content": example[promt_col], "role": "user"}, {"content": messages, "role": "assistant"}]
     
     else:
         raise TypeError(f"Invalid type for messages: {type(messages)}")
@@ -67,12 +67,14 @@ def prepare_dialogue(example, tokenizer, script_args):
 
 
 def prepare_dpo_dialogue(example, tokenizer, script_args):
-    assert 'chosen' in example and 'rejected' in example and type(example['chosen']) == type(example['rejected']), \
+    chosen_col = script_args.chosen_col_name
+    rejected_col = script_args.rejected_col_name
+    assert chosen_col in example and rejected_col in example and type(example[chosen_col]) == type(example[rejected_col]), \
         f"`chosen` and `rejected` must exist and be of the same type"
 
-    if type(example['chosen']) == list:
-        chosen_messages = example['chosen']
-        rejected_messages = example['rejected']
+    if type(example[chosen_col]) == list:
+        chosen_messages = example[chosen_col]
+        rejected_messages = example[rejected_col]
 
         # Prepent empty system message if it's not there
         if chosen_messages[0]['role'] != 'system':
@@ -90,22 +92,22 @@ def prepare_dpo_dialogue(example, tokenizer, script_args):
         chosen_text = tokenizer.apply_chat_template(chosen_messages, tokenize=False)
         rejected_text = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
 
-    elif type(example['chosen']) == str:
+    elif type(example[chosen_col]) == str:
         # This should only happen in our customized dataset, where we are using mistral template
         assert script_args.template == "mistral", "This should only happen in mistral template"
 
-        prompt_name = "prompt" if "prompt" in example else ("whole_prompt" if "whole_prompt" in example else None)
-        if prompt_name is None:
+        prompt_col = script_args.prompt_col_name
+        if prompt_col is None:
             raise ValueError("Prompt name not found in example")
 
         # Apply chat template
-        chosen_messages = [{"content": example[prompt_name], "role": "user"}, {"content": example['chosen'], "role": "assistant"}]
-        rejected_messages = [{"content": example[prompt_name], "role": "user"}, {"content": example['rejected'], "role": "assistant"}]
+        chosen_messages = [{"content": example[prompt_col], "role": "user"}, {"content": example[chosen_col], "role": "assistant"}]
+        rejected_messages = [{"content": example[prompt_col], "role": "user"}, {"content": example[rejected_col], "role": "assistant"}]
         chosen_text = tokenizer.apply_chat_template(chosen_messages, tokenize=False)
         rejected_text = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
 
     else:
-        raise TypeError(f"Invalid type for chosen and rejected: {type(example['chosen'])}")
+        raise TypeError(f"Invalid type for chosen and rejected: {type(example[chosen_col])}")
 
     # Make sure the user query is the same
     assert chosen_text.split(assistant_prefixs[script_args.template])[0] == rejected_text.split(assistant_prefixs[script_args.template])[0], \
@@ -147,6 +149,9 @@ class ScriptArguments(SFTConfig, DPOConfig):
     peft_task_type: Optional[str] = field(default="CAUSAL_LM", metadata={"help": "the task type of the LoRA adapters"})
     template: Optional[str] = field(default=None, metadata={"help": "Chat template"})
     messages_col_name: Optional[str] = field(default="messages", metadata={"help": "Column name for messages"})
+    chosen_col_name: Optional[str] = field(default="chosen", metadata={"help": "Column name for chosen message"})
+    rejected_col_name: Optional[str] = field(default="rejected", metadata={"help": "Column name for rejected message"})
+    prompt_col_name: Optional[str] = field(default="prompt", metadata={"help": "Column name for prompt"})
     loraplus_lr_ratio: Optional[float] = field(default=None, metadata={"help": "LoRA plus learning rate ratio (lr_B / lr_A)."})
     loraplus_lr_embedding: Optional[float] = field(default=1e-6,
                                                    metadata={"help": "LoRA plus learning rate for lora embedding layers."})
