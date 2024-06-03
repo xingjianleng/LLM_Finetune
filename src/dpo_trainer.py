@@ -1,15 +1,15 @@
 """
-Modified from: https://gist.githubusercontent.com/lewtun/b9d46e00292d9ecdd6fd9628d53c2814/raw/113d9cc98b1556c8b49f608645e2cf269030995d/sft_trainer.py
+Modified from: https://github.com/huggingface/trl/blob/main/examples/research_projects/stack_llama_2/scripts/dpo_llama2.py
 """
 import json
-from utils import ScriptArguments, prepare_dialogue, split_arg, templates, rank0_print
+from utils import ScriptArguments, templates, split_arg, prepare_dpo_dialogue, rank0_print
 from optim import create_loraplus_optimizer
 
 import torch
 from datasets import load_dataset, DatasetDict
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, HfArgumentParser, AutoTokenizer
-from trl import SFTTrainer
+from trl import DPOTrainer
 
 
 def main():
@@ -52,10 +52,6 @@ def main():
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # Sometimes we may want to manually set truncation_side to left, to keep assistant responses always trained
-    if script_args.truncation_side is not None:
-        tokenizer.truncation_side = script_args.truncation_side
-
     if script_args.test_split is not None:
         dataset = DatasetDict({
             "train": dataset,
@@ -67,12 +63,18 @@ def main():
 
     remove_columns = dataset.column_names['train']
     dataset = dataset.map(
-        prepare_dialogue,
+        prepare_dpo_dialogue,
         num_proc=4,
         load_from_cache_file=script_args.load_from_cache_file,
         fn_kwargs={"tokenizer": tokenizer, "script_args": script_args},
         remove_columns=remove_columns
     )
+
+    # Replace column names with what TRL needs, text_chosen -> chosen and text_rejected -> rejected
+    for split in ["train", "test"]:
+        dataset[split] = dataset[split].rename_columns(
+            {"text_prompt": "prompt", "text_chosen": "chosen", "text_rejected": "rejected"}
+        )
 
     # Step 2: Load the model
     torch_dtype = torch.bfloat16 if script_args.bf16 else (torch.float16 if script_args.fp16 else torch.float32)
@@ -117,8 +119,11 @@ def main():
         peft_config = None
 
     # Step 4: Define the Trainer
-    trainer = SFTTrainer(
+    # Since we always want to have a reference model with the same architecture as the
+    # tuned model, we pass None as the ref_model
+    trainer = DPOTrainer(
         model=model,
+        ref_model=None,
         tokenizer=tokenizer,
         args=script_args,
         train_dataset=dataset["train"],

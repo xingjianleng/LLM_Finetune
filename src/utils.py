@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
-from trl import SFTConfig
+from trl import SFTConfig, DPOConfig
 
 
 templates = {
@@ -119,8 +119,13 @@ def prepare_dpo_dialogue(example, tokenizer, script_args):
     return example
 
 
+def rank0_print(msg, script_args):
+    if script_args.local_rank == 0:
+        print(msg)
+
+
 @dataclass
-class SFTArguments(SFTConfig):
+class ScriptArguments(SFTConfig, DPOConfig):
     model_name: Optional[str] = field(default="meta-llama/Meta-Llama-3-8B", metadata={"help": "the model name"})
     dataset_name: Optional[str] = field(
         default="HuggingFaceH4/ultrachat_200k", metadata={"help": "the dataset name"}
@@ -140,7 +145,7 @@ class SFTArguments(SFTConfig):
     peft_lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "the dropout parameter of the LoRA adapters"})
     peft_use_rslora: Optional[bool] = field(default=False, metadata={"help": "Enable RSLora"})
     peft_task_type: Optional[str] = field(default="CAUSAL_LM", metadata={"help": "the task type of the LoRA adapters"})
-    template: Optional[str] = field(default="llama3", metadata={"help": "Chat template"})
+    template: Optional[str] = field(default=None, metadata={"help": "Chat template"})
     messages_col_name: Optional[str] = field(default="messages", metadata={"help": "Column name for messages"})
     loraplus_lr_ratio: Optional[float] = field(default=None, metadata={"help": "LoRA plus learning rate ratio (lr_B / lr_A)."})
     loraplus_lr_embedding: Optional[float] = field(default=1e-6,
@@ -148,5 +153,6 @@ class SFTArguments(SFTConfig):
     load_from_cache_file: Optional[bool] = field(default=True,
                                                  metadata={"help": "Load from cache file for datasets library"})
     use_reentrant: Optional[bool] = field(default=False, metadata={"help": "Use reentrant lock for tokenization"})
+    truncation_side: Optional[str] = field(default=None, metadata={"help": "Truncation side for tokenization"})
     attn_implementation: Optional[str] = field(default="flash_attention_2",
                                                metadata={"help": "Attention implementation"})

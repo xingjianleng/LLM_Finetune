@@ -15,10 +15,10 @@ fi
 
 deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --deepspeed configs/deepspeed_configs/ds_zero3.json \
-    --model_name meta-llama/Meta-Llama-3-8B \
-    --template llama3 \
-    --dataset_name HuggingFaceH4/ultrachat_200k \
-    --messages_col_name messages \
+    --model_name output/mistral-7b_sft_ultrachat200k_20240602_225731_merged  \
+    --template zephyr \
+    --dataset_name HuggingFaceH4/ultrafeedback_binarized \
+    --messages_col_name chosen \
     --use_peft true \
     --peft_lora_r 64 \
     --peft_lora_alpha 16 \
@@ -29,13 +29,13 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --peft_lora_targets q_proj,k_proj,v_proj,o_proj \
     --train_split train_sft \
     --test_split test_sft \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
-    --gradient_accumulation_steps 8 \
+    --per_device_train_batch_size 32 \
+    --per_device_eval_batch_size 32 \
+    --gradient_accumulation_steps 2 \
     --gradient_checkpointing true \
-    --learning_rate 5e-5 \
-    --num_train_epochs 1 \
-    --output_dir output/llama3-8b_sft_ultrachat200k_$timestamp \
+    --learning_rate 2e-5 \
+    --num_train_epochs 3 \
+    --output_dir output/zephyr-7b_sft_ultrafeedback_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
@@ -44,7 +44,7 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --save_steps 400 \
     --save_total_limit 2 \
     --logging_steps 1 \
-    --warmup_ratio 0.03 \
+    --warmup_ratio 0.1 \
     --bf16 true \
     --dataset_text_field text \
     --packing true \
