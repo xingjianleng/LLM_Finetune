@@ -2,6 +2,7 @@
 Modified from: https://gist.githubusercontent.com/lewtun/b9d46e00292d9ecdd6fd9628d53c2814/raw/113d9cc98b1556c8b49f608645e2cf269030995d/sft_trainer.py
 """
 import json
+import pathlib
 from utils import ScriptArguments, prepare_dialogue, split_arg, templates, rank0_print
 from optim import create_loraplus_optimizer
 
@@ -61,9 +62,17 @@ def main():
             "train": dataset,
             "test": load_dataset(script_args.dataset_name, split=script_args.test_split)
         })
-    else:
-        assert script_args.test_size is not None and script_args.test_size > 0
+    elif script_args.test_size is not None:
+        # If test_size is provided, we split the dataset into train and test
+        assert 0 < script_args.test_size < 1, "test_size must be a float between 0 and 1"
         dataset = dataset.train_test_split(test_size=script_args.test_size)
+    else:
+        # This is the case where no eval_set is used
+        dataset = DatasetDict({
+            "train": dataset,
+        })
+        # Set eval_strategy to no if no testing set is provided
+        script_args.eval_strategy = "no"
 
     remove_columns = dataset.column_names['train']
     dataset = dataset.map(
@@ -122,7 +131,7 @@ def main():
         tokenizer=tokenizer,
         args=script_args,
         train_dataset=dataset["train"],
-        eval_dataset=dataset["test"],
+        eval_dataset=dataset["test"] if "test" in dataset else None,
     )
 
     # Step 5: Prepare LoRA+ optimizer and start training
@@ -130,7 +139,11 @@ def main():
         optimizer = create_loraplus_optimizer(model, script_args)
         trainer.optimizer = optimizer
 
-    trainer.train()
+    if list(pathlib.Path(script_args.output_dir).glob("checkpoint-*")):
+        rank0_print("Resuming from checkpoint...", script_args)
+        trainer.train(resume_from_checkpoint=True)
+    else:
+        trainer.train()
 
     # Step 6: Save the model
     trainer.save_model(script_args.output_dir)

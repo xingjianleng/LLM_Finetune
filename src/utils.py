@@ -132,7 +132,7 @@ class ScriptArguments(SFTConfig, DPOConfig):
     )
     train_split: Optional[str] = field(default="train", metadata={"help": "the train split of the dataset"})
     test_split: Optional[str] = field(default=None, metadata={"help": "the test split of the dataset"})
-    test_size: Optional[float] = field(default=0.15, metadata={"help": "the size of the test split, only used if test_split is None"})
+    test_size: Optional[float] = field(default=None, metadata={"help": "the size of the test split, only used if test_split is None"})
     load_in_8bit: Optional[bool] = field(default=False, metadata={"help": "load the model in 8 bits precision"})
     load_in_4bit: Optional[bool] = field(default=False, metadata={"help": "load the model in 4 bits precision"})
     use_peft: Optional[bool] = field(default=False, metadata={"help": "Wether to use PEFT or not to train adapters"})
