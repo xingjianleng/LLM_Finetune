@@ -29,9 +29,9 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --peft_lora_targets q_proj,k_proj,v_proj,o_proj \
     --train_split train_sft \
     --test_split test_sft \
-    --per_device_train_batch_size 32 \
-    --per_device_eval_batch_size 32 \
-    --gradient_accumulation_steps 2 \
+    --per_device_train_batch_size 8 \
+    --per_device_eval_batch_size 8 \
+    --gradient_accumulation_steps 8 \
     --gradient_checkpointing true \
     --learning_rate 5e-5 \
     --num_train_epochs 1 \
