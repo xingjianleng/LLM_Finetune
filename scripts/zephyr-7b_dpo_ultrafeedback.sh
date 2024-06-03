@@ -13,7 +13,6 @@ if [ -n "$1" ]; then
     MASTER_PORT=$1
 fi
 
-
 deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --deepspeed configs/deepspeed_configs/ds_zero3.json \
     --model_name output/mistral-7b_sft_ultrachat200k_20240602_225731_merged \
@@ -38,9 +37,9 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
-    --eval_steps 400 \
+    --eval_steps 200 \
     --save_strategy steps \
-    --save_steps 400 \
+    --save_steps 200 \
     --save_total_limit 2 \
     --logging_steps 1 \
     --warmup_ratio 0.1 \
@@ -49,7 +48,7 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --report_to wandb \
     --beta 0.1 \
     --max_length 2048 \
-    --max_prompt_length 2048 \
+    --max_prompt_length 1024 \
     --loss_type sigmoid \
     --label_smoothing 0 \
     --reference_free false \
