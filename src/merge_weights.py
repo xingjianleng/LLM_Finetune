@@ -29,6 +29,6 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Merge LoRA weights to the original model')
-    parser.add_argument('adapter_path', type=str, required=True, help='the base model name')
+    parser.add_argument('--adapter_path', type=str, required=True, help='the base model name')
     args = parser.parse_args()
     main(args)
