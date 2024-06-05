@@ -27,9 +27,9 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --peft_lora_targets q_proj,k_proj,v_proj,o_proj \
     --train_split train_prefs \
     --test_split test_prefs \
-    --per_device_train_batch_size 16 \
-    --per_device_eval_batch_size 16 \
-    --gradient_accumulation_steps 4 \
+    --per_device_train_batch_size 8 \
+    --per_device_eval_batch_size 8 \
+    --gradient_accumulation_steps 8 \
     --gradient_checkpointing true \
     --learning_rate 5e-6 \
     --num_train_epochs 3 \
