@@ -28,26 +28,26 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --peft_use_rslora true \
     --peft_lora_bias none \
     --peft_lora_targets q_proj,v_proj \
-    --train_split langgraph_v6prompt_twoshot \
+    --train_split langgraph_v0prompt_oneshot \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 32 \
     --gradient_checkpointing true \
-    --learning_rate 5e-6 \
-    --num_train_epochs 40 \
-    --output_dir output/mixtral-8x7b_dpo_autoflow_$timestamp \
+    --learning_rate 6e-6 \
+    --num_train_epochs 10 \
+    --output_dir output/mixtral-8x7b_dpo_autoflow_old_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
     --eval_steps 200 \
     --save_strategy steps \
-    --save_steps 80 \
+    --save_steps 50 \
     --save_total_limit 2 \
     --logging_steps 1 \
     --warmup_ratio 0.1 \
     --bf16 true \
     --report_to wandb \
-    --beta 0.15 \
+    --beta 0.01 \
     --max_length 5290 \
     --max_prompt_length 4096 \
     --loss_type sigmoid \
