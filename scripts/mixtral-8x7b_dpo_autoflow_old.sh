@@ -34,7 +34,7 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --gradient_accumulation_steps 32 \
     --gradient_checkpointing true \
     --learning_rate 6e-6 \
-    --num_train_epochs 10 \
+    --num_train_epochs 25 \
     --output_dir output/mixtral-8x7b_dpo_autoflow_old_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
@@ -47,7 +47,7 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --warmup_ratio 0.1 \
     --bf16 true \
     --report_to wandb \
-    --beta 0.01 \
+    --beta 0.15 \
     --max_length 5290 \
     --max_prompt_length 4096 \
     --loss_type sigmoid \
