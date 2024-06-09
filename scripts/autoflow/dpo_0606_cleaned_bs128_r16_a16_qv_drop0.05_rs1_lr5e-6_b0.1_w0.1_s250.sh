@@ -20,7 +20,7 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --dataset_name AIAgentGroup/autoflow \
     --dataset_config_name 0606_format_cleaned \
     --chosen_col_name chosen \
-    --rejected_col_name reject \
+    --rejected_col_name rejected \
     --prompt_col_name demonstration \
     --train_split 0606_cleaned \
     --use_peft true \
