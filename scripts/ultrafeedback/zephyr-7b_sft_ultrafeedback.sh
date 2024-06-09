@@ -35,7 +35,7 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --gradient_checkpointing true \
     --learning_rate 2e-5 \
     --num_train_epochs 3 \
-    --output_dir output/zephyr-7b_sft_ultrafeedback_$timestamp \
+    --output_dir output/ultrafeedback/zephyr-7b_sft_ultrafeedback_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \

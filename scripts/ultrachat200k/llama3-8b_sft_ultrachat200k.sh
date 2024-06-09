@@ -35,7 +35,7 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --gradient_checkpointing true \
     --learning_rate 5e-5 \
     --num_train_epochs 1 \
-    --output_dir output/llama3-8b_sft_ultrachat200k_$timestamp \
+    --output_dir output/ultrachat200k/llama3-8b_sft_ultrachat200k_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
