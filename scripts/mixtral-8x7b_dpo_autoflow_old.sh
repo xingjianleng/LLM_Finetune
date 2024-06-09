@@ -33,7 +33,7 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 32 \
     --gradient_checkpointing true \
-    --learning_rate 6e-6 \
+    --learning_rate 5e-6 \
     --num_train_epochs 25 \
     --output_dir output/mixtral-8x7b_dpo_autoflow_old_$timestamp \
     --optim adamw_torch \

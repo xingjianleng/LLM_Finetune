@@ -47,7 +47,7 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --warmup_ratio 0.1 \
     --bf16 true \
     --report_to wandb \
-    --beta 0.15 \
+    --beta 0.02 \
     --max_length 5290 \
     --max_prompt_length 4096 \
     --loss_type sigmoid \
