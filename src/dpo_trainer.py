@@ -55,6 +55,10 @@ def main():
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    # Sometimes we may want to manually set truncation_side to left, to keep assistant responses always trained
+    if script_args.truncation_side is not None:
+        tokenizer.truncation_side = script_args.truncation_side
+
     if script_args.test_split is not None:
         dataset = DatasetDict({
             "train": dataset,
