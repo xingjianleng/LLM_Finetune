@@ -132,6 +132,9 @@ class ScriptArguments(SFTConfig, DPOConfig):
     dataset_name: Optional[str] = field(
         default="HuggingFaceH4/ultrachat_200k", metadata={"help": "the dataset name"}
     )
+    dataset_config_name: Optional[str] = field(
+        default="default", metadata={"help": "the dataset config name"}
+    )
     train_split: Optional[str] = field(default="train", metadata={"help": "the train split of the dataset"})
     test_split: Optional[str] = field(default=None, metadata={"help": "the test split of the dataset"})
     test_size: Optional[float] = field(default=None, metadata={"help": "the size of the test split, only used if test_split is None"})

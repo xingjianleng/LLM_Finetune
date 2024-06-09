@@ -47,7 +47,9 @@ def main():
         assert templates[script_args.template] == tokenizer.chat_template, \
             (f"Tokenizer chat template {tokenizer.chat_template} does not match "
             f"provided template {templates[script_args.template]}. Double check the template argument!")
-    dataset = load_dataset(script_args.dataset_name, split=script_args.train_split)
+    dataset = load_dataset(script_args.dataset_name,
+                           script_args.dataset_config_name,
+                           split=script_args.train_split)
 
     # Fix tokenizer by setting pad_token to eos_token
     if tokenizer.pad_token_id is None:
@@ -56,7 +58,9 @@ def main():
     if script_args.test_split is not None:
         dataset = DatasetDict({
             "train": dataset,
-            "test": load_dataset(script_args.dataset_name, split=script_args.test_split)
+            "test": load_dataset(script_args.dataset_name,
+                                 script_args.dataset_config_name,
+                                 split=script_args.test_split)
         })
     elif script_args.test_size is not None:
         # If test_size is provided, we split the dataset into train and test
