@@ -36,7 +36,7 @@ deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --gradient_checkpointing true \
     --learning_rate 5e-6 \
     --max_steps 250 \
-    --output_dir output/autoflow/dpo_0520_bs128_r16_a16_qv_drop0.05_rs1_lr5e-6_b0.1_w0.1_s250_$timestamp \
+    --output_dir output/autoflow/ipo_0520_bs128_r16_a16_qv_drop0.05_rs1_lr5e-6_b0.1_w0.1_s250_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
