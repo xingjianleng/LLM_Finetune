@@ -7,10 +7,14 @@ from utils import ScriptArguments, templates, split_arg, prepare_dpo_dialogue, r
 from optim import create_loraplus_optimizer
 
 import torch
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset, DatasetDict, disable_caching
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, HfArgumentParser, AutoTokenizer
 from trl import DPOTrainer
+
+
+# Disable caching for datasets
+disable_caching()
 
 
 def main():
@@ -81,7 +85,8 @@ def main():
     remove_columns = dataset.column_names['train']
     dataset = dataset.map(
         prepare_dpo_dialogue,
-        num_proc=4,
+        num_proc=8,
+        batched=True,
         load_from_cache_file=script_args.load_from_cache_file,
         fn_kwargs={"tokenizer": tokenizer, "script_args": script_args},
         remove_columns=remove_columns
