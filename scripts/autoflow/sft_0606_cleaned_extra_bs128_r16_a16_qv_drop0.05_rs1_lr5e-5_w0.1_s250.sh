@@ -21,7 +21,7 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --dataset_config_name 0606_format_cleaned \
     --messages_col_name chosen \
     --prompt_col_name demonstration \
-    --train_split 0606_cleaned \
+    --train_split 0606_cleaned_extra \
     --use_peft true \
     --peft_lora_r 16 \
     --peft_lora_alpha 16 \
@@ -35,7 +35,7 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --gradient_checkpointing true \
     --learning_rate 5e-5 \
     --max_steps 250 \
-    --output_dir output/autoflow/sft_0606_cleaned_bs128_r16_a16_qv_drop0.05_rs1_lr5e-5_w0.1_s250_$timestamp \
+    --output_dir output/autoflow/sft_0606_cleaned_extra_bs128_r16_a16_qv_drop0.05_rs1_lr5e-5_w0.1_s250_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
