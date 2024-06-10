@@ -34,8 +34,8 @@ deepspeed --master_port $MASTER_PORT src/sft_trainer.py \
     --gradient_accumulation_steps 32 \
     --gradient_checkpointing true \
     --learning_rate 5e-5 \
-    --max_steps 250 \
-    --output_dir output/autoflow/sft_0606_cleaned_extra_bs128_r16_a16_qv_drop0.05_rs1_lr5e-5_w0.1_s250_$timestamp \
+    --max_steps 420 \
+    --output_dir output/autoflow/sft_0606_cleaned_extra_bs128_r16_a16_qv_drop0.05_rs1_lr5e-5_w0.1_s420_$timestamp \
     --optim adamw_torch \
     --lr_scheduler_type cosine \
     --eval_strategy steps \
