@@ -86,7 +86,6 @@ def main():
     dataset = dataset.map(
         prepare_dialogue,
         num_proc=8,
-        batched=True,
         load_from_cache_file=script_args.load_from_cache_file,
         fn_kwargs={"tokenizer": tokenizer, "script_args": script_args},
         remove_columns=remove_columns
