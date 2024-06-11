@@ -15,7 +15,7 @@ fi
 
 deepspeed --master_port $MASTER_PORT src/dpo_trainer.py \
     --deepspeed configs/deepspeed_configs/ds_zero3.json \
-    --model_name output/mistral-7b_sft_ultrachat200k_20240602_225731_merged \
+    --model_name output/ultrachat200k/mistral-7b_sft_ultrachat200k_20240602_225731_merged \
     --template zephyr \
     --dataset_name HuggingFaceH4/ultrafeedback_binarized \
     --use_peft true \
