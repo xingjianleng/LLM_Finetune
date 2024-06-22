@@ -25,10 +25,10 @@ def main():
     script_args.gradient_checkpointing_kwargs = {"use_reentrant": script_args.use_reentrant}
     peft_lora_targets_parsed = split_arg(script_args.peft_lora_targets)
 
-    assert (script_args.deepspeed is not None) ^ (script_args.use_unsloth is not None), \
+    assert (script_args.deepspeed is not None) ^ (script_args.use_unsloth), \
         "You must specify either deepspeed or unsloth, but not both"
-    assert script_args.use_unsloth and torch.cuda.device_count() == 1, \
-        "Unsloth only supports single GPU training"
+    if script_args.use_unsloth:
+        assert torch.cuda.device_count() == 1, "Unsloth only supports single GPU training"
 
     # If we are using deepspeed, we need to check if we are using Zero stage 3
     if script_args.deepspeed is not None and (script_args.load_in_8bit or script_args.load_in_4bit):
