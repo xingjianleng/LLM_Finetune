@@ -11,6 +11,7 @@ from datasets import load_dataset, DatasetDict, disable_caching
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig, HfArgumentParser, AutoTokenizer
 from trl import SFTTrainer
+from unsloth import FastLanguageModel
 
 
 # Disable caching for datasets
@@ -23,6 +24,11 @@ def main():
     # Manually set gradient checkpointing kwargs
     script_args.gradient_checkpointing_kwargs = {"use_reentrant": script_args.use_reentrant}
     peft_lora_targets_parsed = split_arg(script_args.peft_lora_targets)
+
+    assert (script_args.deepspeed is not None) ^ (script_args.use_unsloth is not None), \
+        "You must specify either deepspeed or unsloth, but not both"
+    assert script_args.use_unsloth and torch.cuda.device_count() == 1, \
+        "Unsloth only supports single GPU training"
 
     # If we are using deepspeed, we need to check if we are using Zero stage 3
     if script_args.deepspeed is not None and (script_args.load_in_8bit or script_args.load_in_4bit):
@@ -43,43 +49,66 @@ def main():
     # Step 1: Load the model
     torch_dtype = torch.bfloat16 if script_args.bf16 else (torch.float16 if script_args.fp16 else torch.float32)
 
-    if script_args.load_in_8bit and script_args.load_in_4bit:
-        raise ValueError("You can't load the model in 8 bits and 4 bits at the same time")
-    elif script_args.load_in_8bit or script_args.load_in_4bit:
-        quantization_config = BitsAndBytesConfig(
-            load_in_8bit=script_args.load_in_8bit, load_in_4bit=script_args.load_in_4bit
+    if script_args.use_unsloth:
+        assert not script_args.load_in_8bit, "Unsloth does not support 8-bit quantization"
+        # We use our custom tokenizer rather than the one from unsloth
+        model, _ = FastLanguageModel.from_pretrained(
+            script_args.model_name,
+            max_seq_length=script_args.max_seq_length,
+            load_in_4bit=script_args.load_in_4bit,
+            trust_remote_code=script_args.trust_remote_code,
+            dtype=torch_dtype,
+            attn_implementation=script_args.attn_implementation,
+            use_cache=not script_args.gradient_checkpointing,
         )
-        # Copy the model to each device
-        device_map = {"": script_args.device}
+        if script_args.use_peft:
+            model = FastLanguageModel.get_peft_model(
+                model=model,
+                r=script_args.peft_lora_r,
+                lora_alpha=script_args.peft_lora_alpha,
+                lora_dropout=script_args.peft_lora_dropout,
+                use_rslora=script_args.peft_use_rslora,
+                bias=script_args.peft_lora_bias,
+                target_modules=peft_lora_targets_parsed,
+            )
     else:
-        device_map = None
-        quantization_config = None
+        if script_args.load_in_8bit and script_args.load_in_4bit:
+            raise ValueError("You can't load the model in 8 bits and 4 bits at the same time")
+        elif script_args.load_in_8bit or script_args.load_in_4bit:
+            quantization_config = BitsAndBytesConfig(
+                load_in_8bit=script_args.load_in_8bit, load_in_4bit=script_args.load_in_4bit
+            )
+            # Copy the model to each device
+            device_map = {"": script_args.device}
+        else:
+            device_map = None
+            quantization_config = None
 
-    model = AutoModelForCausalLM.from_pretrained(
-        script_args.model_name,
-        quantization_config=quantization_config,
-        device_map=device_map,
-        trust_remote_code=script_args.trust_remote_code,
-        torch_dtype=torch_dtype,
-        attn_implementation=script_args.attn_implementation,
-        use_cache=not script_args.gradient_checkpointing,
-    )
-
-    if script_args.use_peft:
-        peft_config = LoraConfig(
-            r=script_args.peft_lora_r,
-            lora_alpha=script_args.peft_lora_alpha,
-            lora_dropout=script_args.peft_lora_dropout,
-            use_rslora=script_args.peft_use_rslora,
-            bias=script_args.peft_lora_bias,
-            target_modules=peft_lora_targets_parsed,
-            task_type=script_args.peft_task_type,
+        model = AutoModelForCausalLM.from_pretrained(
+            script_args.model_name,
+            quantization_config=quantization_config,
+            device_map=device_map,
+            trust_remote_code=script_args.trust_remote_code,
+            torch_dtype=torch_dtype,
+            attn_implementation=script_args.attn_implementation,
+            use_cache=not script_args.gradient_checkpointing,
         )
-        
-        # Directly get the peft model
-        model = get_peft_model(model, peft_config)
-    else:
-        peft_config = None
+
+        if script_args.use_peft:
+            peft_config = LoraConfig(
+                r=script_args.peft_lora_r,
+                lora_alpha=script_args.peft_lora_alpha,
+                lora_dropout=script_args.peft_lora_dropout,
+                use_rslora=script_args.peft_use_rslora,
+                bias=script_args.peft_lora_bias,
+                target_modules=peft_lora_targets_parsed,
+                task_type=script_args.peft_task_type,
+            )
+            
+            # Directly get the peft model
+            model = get_peft_model(model, peft_config)
+        else:
+            peft_config = None
 
     # Step 2: Load the tokenizer
     tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)

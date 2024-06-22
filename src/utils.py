@@ -170,3 +170,4 @@ class ScriptArguments(SFTConfig, DPOConfig):
     truncation_side: Optional[str] = field(default=None, metadata={"help": "Truncation side for tokenization"})
     attn_implementation: Optional[str] = field(default="flash_attention_2",
                                                metadata={"help": "Attention implementation"})
+    use_unsloth: Optional[bool] = field(default=False, metadata={"help": "Use `unsloth` for efficient training"})
