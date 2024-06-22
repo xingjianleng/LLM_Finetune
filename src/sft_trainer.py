@@ -40,7 +40,48 @@ def main():
         assert stage != 3, \
             "DeepSpeed Zero stage 3 is not supported with quantization"
 
-    # Step 1: Load the dataset
+    # Step 1: Load the model
+    torch_dtype = torch.bfloat16 if script_args.bf16 else (torch.float16 if script_args.fp16 else torch.float32)
+
+    if script_args.load_in_8bit and script_args.load_in_4bit:
+        raise ValueError("You can't load the model in 8 bits and 4 bits at the same time")
+    elif script_args.load_in_8bit or script_args.load_in_4bit:
+        quantization_config = BitsAndBytesConfig(
+            load_in_8bit=script_args.load_in_8bit, load_in_4bit=script_args.load_in_4bit
+        )
+        # Copy the model to each device
+        device_map = {"": script_args.device}
+    else:
+        device_map = None
+        quantization_config = None
+
+    model = AutoModelForCausalLM.from_pretrained(
+        script_args.model_name,
+        quantization_config=quantization_config,
+        device_map=device_map,
+        trust_remote_code=script_args.trust_remote_code,
+        torch_dtype=torch_dtype,
+        attn_implementation=script_args.attn_implementation,
+        use_cache=not script_args.gradient_checkpointing,
+    )
+
+    if script_args.use_peft:
+        peft_config = LoraConfig(
+            r=script_args.peft_lora_r,
+            lora_alpha=script_args.peft_lora_alpha,
+            lora_dropout=script_args.peft_lora_dropout,
+            use_rslora=script_args.peft_use_rslora,
+            bias=script_args.peft_lora_bias,
+            target_modules=peft_lora_targets_parsed,
+            task_type=script_args.peft_task_type,
+        )
+        
+        # Directly get the peft model
+        model = get_peft_model(model, peft_config)
+    else:
+        peft_config = None
+
+    # Step 2: Load the tokenizer
     tokenizer = AutoTokenizer.from_pretrained(script_args.model_name)
     # Set chat template if the tokenizer does not have one
     if tokenizer.chat_template is None:
@@ -51,17 +92,23 @@ def main():
         assert templates[script_args.template] == tokenizer.chat_template, \
             (f"Tokenizer chat template {tokenizer.chat_template} does not match "
             f"provided template {templates[script_args.template]}. Double check the template argument!")
-    dataset = load_dataset(script_args.dataset_name,
-                           script_args.dataset_config_name,
-                           split=script_args.train_split)
 
-    # Fix tokenizer by setting pad_token to eos_token
+    # Fix tokenizer by setting pad_token to eos_token (Fix for most models which doesn't have pad_token)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Fix tokenizer by settting `bos_token` according to model cfg (Fix for Qwen2)
+    if tokenizer.bos_token is None:
+        tokenizer.bos_token_id = model.config.bos_token_id
 
     # Sometimes we may want to manually set truncation_side to left, to keep assistant responses always trained
     if script_args.truncation_side is not None:
         tokenizer.truncation_side = script_args.truncation_side
+
+    # Step 3: Prepare the dataset
+    dataset = load_dataset(script_args.dataset_name,
+                           script_args.dataset_config_name,
+                           split=script_args.train_split)
 
     if script_args.test_split is not None:
         dataset = DatasetDict({
@@ -90,48 +137,6 @@ def main():
         fn_kwargs={"tokenizer": tokenizer, "script_args": script_args},
         remove_columns=remove_columns
     )
-
-    # Step 2: Load the model
-    torch_dtype = torch.bfloat16 if script_args.bf16 else (torch.float16 if script_args.fp16 else torch.float32)
-
-    if script_args.load_in_8bit and script_args.load_in_4bit:
-        raise ValueError("You can't load the model in 8 bits and 4 bits at the same time")
-    elif script_args.load_in_8bit or script_args.load_in_4bit:
-        quantization_config = BitsAndBytesConfig(
-            load_in_8bit=script_args.load_in_8bit, load_in_4bit=script_args.load_in_4bit
-        )
-        # Copy the model to each device
-        device_map = {"": script_args.device}
-    else:
-        device_map = None
-        quantization_config = None
-
-    model = AutoModelForCausalLM.from_pretrained(
-        script_args.model_name,
-        quantization_config=quantization_config,
-        device_map=device_map,
-        trust_remote_code=script_args.trust_remote_code,
-        torch_dtype=torch_dtype,
-        attn_implementation=script_args.attn_implementation,
-        use_cache=not script_args.gradient_checkpointing,
-    )
-
-    # Step 3: Define the LoraConfig and load the model
-    if script_args.use_peft:
-        peft_config = LoraConfig(
-            r=script_args.peft_lora_r,
-            lora_alpha=script_args.peft_lora_alpha,
-            lora_dropout=script_args.peft_lora_dropout,
-            use_rslora=script_args.peft_use_rslora,
-            bias=script_args.peft_lora_bias,
-            target_modules=peft_lora_targets_parsed,
-            task_type=script_args.peft_task_type,
-        )
-        
-        # Directly get the peft model
-        model = get_peft_model(model, peft_config)
-    else:
-        peft_config = None
 
     # Step 4: Define the Trainer
     trainer = SFTTrainer(

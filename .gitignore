@@ -163,4 +163,5 @@ cython_debug/
 .vscode/
 wandb/
 work_dir/
-output
+output/
+scripts/

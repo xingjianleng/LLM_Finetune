@@ -96,9 +96,6 @@ def prepare_dpo_dialogue(example, tokenizer, script_args):
         rejected_text = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
 
     elif type(example[chosen_col]) == str:
-        # This should only happen in our customized dataset, where we are using mistral template
-        assert script_args.template == "mistral", "This should only happen in mistral template"
-
         prompt_col = script_args.prompt_col_name
         if prompt_col is None:
             raise ValueError("Prompt name not found in example")
@@ -106,6 +103,12 @@ def prepare_dpo_dialogue(example, tokenizer, script_args):
         # Apply chat template
         chosen_messages = [{"content": example[prompt_col], "role": "user"}, {"content": example[chosen_col], "role": "assistant"}]
         rejected_messages = [{"content": example[prompt_col], "role": "user"}, {"content": example[rejected_col], "role": "assistant"}]
+
+        # Prepent empty system message if it's not there and the template supports it
+        if support_system_msg[script_args.template]:
+            chosen_messages.insert(0, {"content": "", "role": "system"})
+            rejected_messages.insert(0, {"content": "", "role": "system"})
+
         chosen_text = tokenizer.apply_chat_template(chosen_messages, tokenize=False)
         rejected_text = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
 
